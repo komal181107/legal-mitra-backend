@@ -1,12 +1,11 @@
-from openai import OpenAI
 
+from openai import OpenAI
 from app.config import OPENROUTER_API_KEY
 
 
 class GeminiService:
 
     def __init__(self):
-
         print("Creating GeminiService...")
 
         self.client = OpenAI(
@@ -18,34 +17,18 @@ class GeminiService:
 
     def generate_answer(self, question: str, laws):
 
-        # =========================================
-        # RAG DOCUMENT CONTEXT
-        # =========================================
-
+        # Build context from retrieved legal documents
         context_parts = []
 
         for i, doc in enumerate(laws):
-
-            source = doc.metadata.get(
-                "source",
-                "Unknown"
-            )
-
-            page = doc.metadata.get(
-                "page",
-                "Unknown"
-            )
+            source = doc.metadata.get("source", "Unknown")
+            page = doc.metadata.get("page", "Unknown")
 
             context_parts.append(
                 f"""
 DOCUMENT {i + 1}
-
-SOURCE FILE:
-{source}
-
-PAGE:
-{page}
-
+SOURCE FILE: {source}
+PAGE: {page}
 CONTENT:
 {doc.page_content}
 """
@@ -53,71 +36,44 @@ CONTENT:
 
         context = "\n".join(context_parts)
 
-        # =========================================
-        # DEBUG
-        # =========================================
-
-        print("\n========================================")
-        print("CONTEXT SENT TO LLM")
-        print("========================================")
+        print("\n========== CONTEXT SENT TO LLM ==========")
         print(context[:8000])
-        print("========================================")
+        print("=========================================")
 
-        # =========================================
-        # PROMPT
-        # =========================================
-
+        # Keep the prompt inside generate_answer()
         prompt = f"""
-You are Legal Mitra, a legal information assistant.
+You are Legal Mitra, a helpful legal information assistant for people in India.
 
-Answer the user's question ONLY using the legal documents provided below.
+Explain legal information in simple English and give practical next steps.
 
-STRICT RULES:
-
-1. Answer only from the provided legal context.
-2. Do not invent any legal fact.
-3. Do not invent section numbers.
-4. Do not invent punishments.
-5. Do not use outside knowledge.
-6. Give a complete and clear answer to the user's question.
-7. Use simple English.
-8. Do not mention that you are an AI.
-9. Do not write "Source 1", "Source 2", etc.
-10. Do not write the source or page in the middle of the answer.
-11. At the VERY END, write exactly ONE source line in this format:
-
+RULES:
+1. Use the provided legal documents as the primary source.
+2. Never invent laws, section numbers, penalties, deadlines, or procedures.
+3. Answer the user's actual question directly.
+4. For practical problems, explain the possible legal meaning and next steps when supported by the context.
+5. Distinguish possible cheating from a simple delivery or contract dispute only when the facts and documents support it.
+6. Do not claim a civil case is the only remedy unless the documents establish that.
+7. Do not guarantee refunds, complaints, or any legal outcome.
+8. If the documents do not answer the question fully, clearly explain the limitation instead of guessing.
+9. Legal conclusions may depend on the specific facts.
+10. Do not mention that you are an AI.
+11. Keep the answer concise and useful.
+12. End with exactly one source line:
 Source: FILE_NAME | Page: PAGE_NUMBER
-
-12. Choose the source and page that most directly supports your answer.
-13. If multiple retrieved documents exist, choose only the most relevant one for the final source line.
-14. If the answer is not available in the provided legal documents, say:
-
-I could not find this information in the provided legal documents.
+13. Use the actual source filename and page from the context. Do not invent them.
 
 USER QUESTION:
-
 {question}
 
 LEGAL DOCUMENT CONTEXT:
-
 {context}
 
-Now answer the question clearly and completely.
-
-Remember:
-- Answer first.
-- Source line must be LAST.
-- Only ONE source/page line.
+Write the answer now. Put the answer first and the single source line last.
 """
 
-        # =========================================
-        # OPENROUTER
-        # =========================================
-
+        # Call OpenRouter
         response = self.client.chat.completions.create(
-
-            model="openai/gpt-oss-20b:free",
-
+            model="openrouter/free",
             messages=[
                 {
                     "role": "user",
@@ -126,18 +82,11 @@ Remember:
             ]
         )
 
-        answer = response.choices[0].message.content
-
-        # =========================================
-        # CLEAN ANSWER
-        # =========================================
-
+        answer = response.choices[0].message.content or ""
         answer = answer.strip()
 
-        print("\n========================================")
-        print("LLM ANSWER")
-        print("========================================")
+        print("\n========== LLM ANSWER ==========")
         print(answer)
-        print("========================================")
+        print("================================")
 
         return answer

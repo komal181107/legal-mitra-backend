@@ -17,17 +17,26 @@ chat_service = ChatService()
 # CHAT
 # =========================================
 
+
 @router.post("/chat", response_model=ChatResponse)
 def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_user)
 ):
-    answer = chat_service.generate_response(
-        request.question,
-        current_user.id
-    )
+    try:
+        result = chat_service.generate_response(
+            request.question,
+            current_user.id,
+            request.conversation_id
+        )
 
-    return ChatResponse(answer=answer)
+        return ChatResponse(
+            answer=result["answer"],
+            conversation_id=result["conversation_id"]
+        )
+
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
 
 
 # =========================================
